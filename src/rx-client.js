@@ -1,8 +1,6 @@
 import Rx from 'rxjs';
 import net from 'net';
 
-
-
 const client = () =>
   Rx.Observable.create((obs) => {
     const client = new net.Socket();
