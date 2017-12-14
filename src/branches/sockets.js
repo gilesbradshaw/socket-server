@@ -1,20 +1,33 @@
 import Rx from 'rxjs';
 
-
 export default ({ socket, opcServers }) =>
-  config =>
+  ({
+    configuration,
+    path,
+    ...rest
+  }) =>
     Rx.Observable.combineLatest(
-      Object.keys(config)
+      Object.keys(configuration)
         .map(key =>
-          socket(config[key].configuration)
+          socket({
+            configuration: configuration[key].configuration,
+            key,
+            path,
+          })
             .switchMap(
               socket =>
-                opcServers(config[key].opcServers, socket)
+                opcServers({
+                  configuration: configuration[key].opcServers,
+                  path: [...path, key],
+                  socket,
+                })
                   .map(
                     opcServers => ({
-                      configuration: config[key].configuration,
+                      configuration: configuration[key].configuration,
                       key,
                       opcServers,
+                      path,
+                      ...rest,
                     }),
                   ),
             ),

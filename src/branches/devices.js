@@ -1,31 +1,51 @@
 import Rx from 'rxjs';
 
-export default ({ broadcasts, trackingPoints }) =>
-  (config, socket, linx) =>
+export default ({
+  broadcasts,
+  device,
+  mapper,
+  trackingPoints,
+}) =>
+  ({
+    configuration,
+    opcServer,
+    path,
+    socket,
+    ...rest
+  }) =>
     Rx.Observable.combineLatest(
-      Object.keys(config)
+      Object.keys(configuration)
         .map(
-          key => linx(config[key].configuration)
+          key => device({
+            configuration: configuration[key].configuration,
+            key,
+            opcServer,
+            path,
+          })
             .switchMap(
-              linx =>
+              device =>
                 Rx.Observable.combineLatest(
-                  broadcasts(
-                    config[key].broadcasts,
+                  broadcasts({
+                    configuration: configuration[key].broadcasts,
+                    device,
+                    path: [...path, key],
                     socket,
-                    linx,
-                  ),
-                  trackingPoints(
-                    config[key]['tracking-points'],
+                  }),
+                  trackingPoints({
+                    configuration: configuration[key]['tracking-points'],
+                    device,
+                    path: [...path, key],
                     socket,
-                    linx,
-                  ),
+                  }),
                 )
                 .map(
                   ([broadcasts, trackingPoints]) => ({
                     broadcasts,
-                    configuration: config[key].configuration,
+                    configuration: configuration[key].configuration,
                     key,
+                    path,
                     trackingPoints,
+                    ...rest,
                   }),
                 ),
             ),

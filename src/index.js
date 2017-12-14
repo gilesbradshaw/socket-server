@@ -1,48 +1,112 @@
 import Rx from 'rxjs';
+import compose from 'compose-function';
 import config from './config';
-import broadcast from './rx-broadcast';
-import trackingPoint from './rx-tracking-point';
+import _socket from './branches/socket';
 import sockets from './branches/sockets';
 import opcServers from './branches/opcServers';
+import _opcServer from './branches/opcServer';
 import devices from './branches/devices';
-import trackingPoints from './branches/trackingPoints';
+import _device from './branches/device';
+import _topic from './branches/topic';
 import broadcasts from './branches/broadcasts';
+import _broadcast from './branches/broadcast';
+import trackingPoints from './branches/tracking-points';
+import _trackingPoint from './branches/tracking-point';
 
-const socket = () =>
-  Rx.Observable.of(
-    () => ({
-      read: () =>
-        Rx.Observable
-          .of('s-read')
-          .concat(Rx.Observable.of('s-read-2').delay(2000)),
-      write: w => Rx.Observable.of(w).delay(10),
-    }),
-  );
+const logCreator = name =>
+  ({ key, path }) =>
+    creater =>
+      creater
+        .do(
+          created =>
+            console.log({
+              [name]: created,
+              key,
+              path,
+            }),
+      );
 
-const linx = () =>
-  Rx.Observable.of(
-    () =>
-      Rx.Observable.of(
-        () => ({
-          read: () => Rx.Observable.of('p-read').delay(10),
-          write: w => Rx.Observable.of(w).delay(10),
-        }),
-    ),
-  );
+const socket = p =>
+  compose(
+    ...[
+      logCreator('createdSocket'),
+      _socket,
+    ].map(f => f(p)),
+  )();
+const opcServer = p =>
+  compose(
+    ...[
+      logCreator('createdOpcServer'),
+      _opcServer,
+    ].map(f => f(p)),
+  )();
+const device = p =>
+  compose(
+    ...[
+      logCreator('createdDevice'),
+      _device,
+    ].map(f => f(p)),
+  )();
 
+const broadcast = p =>
+  compose(
+    ...[
+      logCreator('createdBroadcast'),
+      _broadcast,
+    ].map(f => f(p)),
+  )();
+
+const trackingPoint = p =>
+  compose(
+    ...[
+      logCreator('createdTrackingPoint'),
+      _trackingPoint,
+    ].map(f => f(p)),
+  )();
+const topic = p =>
+  compose(
+    ...[
+      logCreator('createdTopic'),
+      _topic,
+    ].map(f => f(p)),
+  )();
 
 sockets({
-  opcServers: opcServers({
-    devices: devices({
-      broadcasts: broadcasts({
-        broadcast,
-      }),
-      trackingPoints: trackingPoints({
-        trackingPoint,
-      }),
+  opcServers: compose(
+    opcServers({
+      devices: compose(
+        devices({
+          broadcasts: compose(
+            broadcasts({
+              broadcast,
+              topic,
+            }),
+          ),
+          device,
+          mapper: ({ ...stuff }) =>
+            ([
+              broadcasts,
+              trackingPoints,
+            ]) => ({
+              ...stuff,
+              broadcasts,
+              trackingPoints,
+            }),
+          trackingPoints: compose(
+            trackingPoints({
+              trackingPoint,
+              topic,
+            }),
+          ),
+        }),
+      ),
+      opcServer,
     }),
-    linx,
-  }),
+  ),
   socket,
-})(config.sockets)
-  .subscribe(x => console.log(JSON.stringify(x, null, 2)));
+})({
+  configuration: config.sockets,
+  path: [],
+})
+  .subscribe(xx => console.log(JSON.stringify({ xx }, null, 2)));
+
